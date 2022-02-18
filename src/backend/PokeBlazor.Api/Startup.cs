@@ -7,7 +7,6 @@ using Microsoft.OpenApi.Models;
 using PokeBlazorApi.Infrastructure.Database;
 using System;
 using Microsoft.EntityFrameworkCore;
-using PokeBlazorApi.Infrastructure.Database;
 
 namespace PokeBlazorApi
 {
