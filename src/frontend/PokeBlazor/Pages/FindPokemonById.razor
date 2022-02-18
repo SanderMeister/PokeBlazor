@@ -20,11 +20,19 @@ else
     <ul><li><p>ID: @currentPokemon.Id - Name: @currentPokemon.Name</p></li></ul>
 }
 @code {
-    private int idToFind;
+    private int idToFind = 1;
     private Pokemon currentPokemon;
     private async void FindNewPokemon()
     {
-        currentPokemon = await GetPokemonService.GetPokemonById(idToFind);
+        try
+        {
+            currentPokemon = await GetPokemonService.GetPokemonById(idToFind);
+        }
+        catch (Exception)
+        {
+            currentPokemon.Id = 0;
+            currentPokemon.Name = "None";
+        }
         StateHasChanged();
     }
 }

@@ -1,0 +1,162 @@
+﻿@using gol.blazorwasm.Models
+@using Microsoft.AspNetCore.Components.Web
+@using System.Text.Json;
+
+@inject IJSRuntime _jsRuntime;
+
+@code
+{
+    private const int SpaceForButtons = 30;
+
+    ElementReference _canvasRef;
+
+    private Life? _life;
+    public bool RunSimulation { get; set; }
+    private int _cellEdgeAndSpacingLength;
+    private double _cellEdgeLength;
+    private int _canvasWidth;
+    private int _canvasHeight;
+
+    [Parameter]
+    public int Columns { get; set; }
+
+    [Parameter]
+    public int Rows { get; set; }
+
+    [Parameter]
+    public int PixelWidth { get; set; }
+
+    [Parameter]
+    public int PixelHeight { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        InitData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var mask = new byte[Rows][];
+        for (var row = 0; row < Rows; row++)
+        {
+            mask[row] = new byte[Columns];
+            for (var col = 0; col < Columns; col++)
+            {
+                var currentCell = _life.Cells[row][col];
+                mask[row][col] = (byte)currentCell.CurrentState;
+            }
+        }
+        var maskColors = new[] { "black", "yellow" };
+
+        await _jsRuntime.InvokeVoidAsync("renderCellsOnCanvas", _canvasRef, mask, maskColors, _cellEdgeAndSpacingLength, _cellEdgeLength);
+    }
+
+    private void InitData()
+    {
+        _life = new Life(Rows, Columns);
+
+        // Glider
+        _life.Toggle(2, 2);
+        _life.Toggle(3, 2);
+        _life.Toggle(4, 2);
+        _life.Toggle(4, 1);
+        _life.Toggle(3, 0);
+
+        UpdateCellAndCanvasSize();
+    }
+
+    private void InitData(Cell[][] cells)
+    {
+        _life = new Life(cells);
+
+        UpdateCellAndCanvasSize();
+    }
+
+    private void UpdateCellAndCanvasSize()
+    {
+        _cellEdgeAndSpacingLength = Math.Min(PixelWidth / Columns, (PixelHeight - SpaceForButtons) / Rows);
+        _cellEdgeLength = 0.9 * _cellEdgeAndSpacingLength;
+
+        _canvasWidth = _cellEdgeAndSpacingLength * Columns;
+        _canvasHeight = _cellEdgeAndSpacingLength * Rows;
+    }
+
+    private void OnCanvasClick(double pixelX, double pixelY)
+    {
+        if (pixelX < 0 || pixelX > _canvasWidth)
+        {
+            return;
+        }
+        if (pixelY < 0 || pixelY > _canvasHeight)
+        {
+            return;
+        }
+
+        // Translate pixel coordinates to rows and columns
+        var clickedRow = (int)((pixelY / _canvasHeight) * Rows);
+        var clickedCol = (int)((pixelX / _canvasWidth) * Columns);
+
+        _life?.Toggle(clickedRow, clickedCol);
+    }
+
+    private void OnClear()
+    {
+        InitData();
+    }
+
+    private void OnTickClicked()
+    {
+        _life?.Tick();
+    }
+
+    public async Task Run()
+    {
+        RunSimulation = true;
+        while (RunSimulation)
+        {
+            _life?.Tick();
+            StateHasChanged();
+            await Task.Delay(1000);
+        }
+    }
+
+    public void Stop()
+    {
+        RunSimulation = false;
+    }
+
+    public void Randomize()
+    {
+        for (var row = 0; row < Rows; row++)
+        {
+            for (var column = 0; column < Columns; column++)
+            {
+                Random random = new Random();
+                if(random.Next(2) == 0){
+                    _life.Toggle(row, column);
+                }
+            }
+        }
+    }
+}
+
+@if (_life != null)
+{
+    <div>
+        <canvas width="@_canvasWidth"
+                height="@_canvasHeight"
+                @onclick="@(e => OnCanvasClick(e.OffsetX, e.OffsetY))"
+                @ref="@_canvasRef">
+        </canvas>
+    </div>
+
+    <button @onclick=@(e => OnClear()) class="btn btn-primary">Clear</button>
+    <button @onclick=@(e => OnTickClicked()) class="btn btn-primary">Tick</button>
+    <button @onclick=@(async e => await Run()) class="btn btn-primary">Run</button>
+    <button @onclick=@(e => Stop()) class="btn btn-primary">Stop</button>
+    <button @onclick=@(e => Randomize()) class="btn btn-primary">Randomize</button>
+}
+else
+{
+    <div>get a Life</div>
+}
